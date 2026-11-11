@@ -104,6 +104,10 @@
 *.log
 **/logs/
 
+# Runtime data with credentials
+backend/data/app.json
+backend/data/*.tmp
+
 # Environment and secrets
 **/.env
 **/.env.local
