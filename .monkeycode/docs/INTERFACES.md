@@ -12,13 +12,15 @@
 
 ### POST /api/accounts
 
-请求体：`{ "name": string, "credential": string, "enabled": boolean }`
+请求体：`{ "name": string, "credential": string, "enabled": boolean, "site": "monkeycode-cn" | "baizhi" }`
+
+`site` 缺省为 `monkeycode-cn`。
 
 `credential` 为空时 400，「会话凭证不能为空」。
 
 ### PUT /api/accounts/:id
 
-请求体字段均可选：`name`、`credential`、`enabled`。
+请求体字段均可选：`name`、`credential`、`enabled`、`site`。
 
 ### DELETE /api/accounts/:id
 
@@ -52,6 +54,8 @@ Cron 无法解析时 400，「Cron 表达式格式无效」。
 
 ## 平台侧（出站，非本系统 API）
 
+### MonkeyCode 国内站
+
 基址 `https://monkeycode-ai.com`，请求头 `Cookie: monkeycode_ai_session=<credential>`。
 
 | 方法 | 路径 | 用途 |
@@ -61,5 +65,16 @@ Cron 无法解析时 400，「Cron 表达式格式无效」。
 | POST | `/api/v1/public/captcha/redeem` | 换 captcha_token |
 | POST | `/api/v1/users/wallet/checkin` | 提交签到 |
 | GET | `/api/v1/users/wallet` | 积分余额 |
+
+### 长亭百智云
+
+基址 `https://baizhi.cloud`，请求头需同时带 `baizhi_session` 与 `sl-session`。
+
+| 方法 | 路径 | 用途 |
+|------|------|------|
+| GET | `/api/v1/user/wallet/balance` | 钱包；`daily_temporary_credit_claimed` 表示今日已领 |
+| POST | `/api/v1/public/captcha/challenge` | 取 PoW 题（与 MonkeyCode 同形） |
+| POST | `/api/v1/public/captcha/redeem` | 换 captcha_token |
+| POST | `/api/v1/user/wallet/daily-temporary-credit` | 领取每日积分 |
 
 超时 10 秒。

@@ -20,8 +20,9 @@ jobs:
         working-directory: backend
         run: npm install
 
-      - name: Run MonkeyCode check-in
+      - name: Run daily check-in
         working-directory: backend
         env:
           MONKEYCODE_SESSION: ${{ secrets.MONKEYCODE_SESSION }}
+          BAIZHI_SESSION: ${{ secrets.BAIZHI_SESSION }}
         run: npx tsx src/cli.ts

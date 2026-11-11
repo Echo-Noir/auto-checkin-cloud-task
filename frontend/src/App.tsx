@@ -12,7 +12,18 @@ import {
   type CheckinTask,
   type ExecutionRecord,
   type RecordStatus,
+  type SiteId,
 } from "./api";
+
+const SITE_LABEL: Record<SiteId, string> = {
+  "monkeycode-cn": "monkeycode-ai.com",
+  baizhi: "baizhi.cloud",
+};
+
+const SITE_HINT: Record<SiteId, string> = {
+  "monkeycode-cn": "粘贴 monkeycode_ai_session 或完整 Cookie",
+  baizhi: "粘贴 baizhi_session 与 sl-session（两枚一起，或完整 Cookie）",
+};
 
 const STATUS_LABEL: Record<RecordStatus, string> = {
   success: "成功",
@@ -39,6 +50,7 @@ export default function App() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
+  const [site, setSite] = useState<SiteId>("monkeycode-cn");
   const [credential, setCredential] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [cron, setCron] = useState("0 8 * * *");
@@ -77,6 +89,7 @@ export default function App() {
   function fillAccount(acc: AccountPublic) {
     setEditId(acc.id);
     setName(acc.name);
+    setSite(acc.site);
     setCredential("");
     const t = taskMap.get(acc.id);
     setCron(t?.cron ?? "0 8 * * *");
@@ -87,7 +100,7 @@ export default function App() {
   return (
     <div className="app">
       <h1>自动签到云任务</h1>
-      <p className="sub">MonkeyCode 国内站每日签到 · Cron 调度 · 本地 JSON 存储</p>
+      <p className="sub">MonkeyCode 国内站 / 长亭百智云每日签到 · Cron 调度 · 本地 JSON 存储</p>
       {corrupted ? <div className="banner">配置数据无法读取，请检查数据文件</div> : null}
 
       <div className="grid">
@@ -95,11 +108,20 @@ export default function App() {
           <h2>{editId ? "编辑账号" : "新增账号"}</h2>
           <label>名称</label>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="主账号" />
+          <label>站点</label>
+          <select
+            value={site}
+            onChange={(e) => setSite(e.target.value as SiteId)}
+            disabled={Boolean(editId)}
+          >
+            <option value="monkeycode-cn">MonkeyCode 国内站</option>
+            <option value="baizhi">长亭百智云</option>
+          </select>
           <label>Session Credential</label>
           <textarea
             value={credential}
             onChange={(e) => setCredential(e.target.value)}
-            placeholder="粘贴 monkeycode_ai_session 或完整 Cookie"
+            placeholder={SITE_HINT[site]}
           />
           <label>Cron</label>
           <input value={cron} onChange={(e) => setCron(e.target.value)} />
@@ -124,6 +146,7 @@ export default function App() {
                       name,
                       credential,
                       enabled: true,
+                      site,
                     });
                     await saveTask(created.id, { cron, timezone, enabled: taskEnabled });
                     setNotice("账号已创建");
@@ -140,6 +163,7 @@ export default function App() {
                 onClick={() => {
                   setEditId(null);
                   setName("");
+                  setSite("monkeycode-cn");
                   setCredential("");
                 }}
               >
@@ -159,7 +183,7 @@ export default function App() {
               <article className="card" key={acc.id}>
                 <div className="name">{acc.name}</div>
                 <div className="meta">
-                  站点 monkeycode-ai.com
+                  站点 {SITE_LABEL[acc.site]}
                   <br />
                   凭证 {acc.credentialMasked}
                   <br />

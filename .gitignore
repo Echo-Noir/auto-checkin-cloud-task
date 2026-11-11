@@ -106,6 +106,8 @@
 
 # Runtime data with credentials
 backend/data/app.json
+backend/data/last-run.json
+backend/data/cli.log
 backend/data/*.tmp
 
 # Environment and secrets

@@ -1,9 +1,20 @@
 export type RecordStatus = "success" | "skipped" | "auth_failed" | "failed";
 
+export type SiteId = "monkeycode-cn" | "baizhi";
+
+export const SITES: { id: SiteId; label: string; host: string }[] = [
+  { id: "monkeycode-cn", label: "MonkeyCode 国内站", host: "monkeycode-ai.com" },
+  { id: "baizhi", label: "长亭百智云", host: "baizhi.cloud" },
+];
+
+export function isSiteId(value: unknown): value is SiteId {
+  return value === "monkeycode-cn" || value === "baizhi";
+}
+
 export type Account = {
   id: string;
   name: string;
-  site: "monkeycode-cn";
+  site: SiteId;
   credential: string;
   enabled: boolean;
   createdAt: string;

@@ -1,34 +1,49 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { loadStore, mutate } from "./store/jsonStore.js";
-import { runCheckin } from "./checkin/executor.js";
+import { getData, loadStore, mutate } from "./store/jsonStore.js";
+import { runCheckin, type RunResult } from "./checkin/executor.js";
+import type { SiteId } from "./types.js";
 import { newId, nowIso } from "./util.js";
 
 const DEFAULT_CRON = "0 8 * * *";
 const DEFAULT_TZ = "Asia/Shanghai";
 
-function envCredential(): string {
-  const fromEnv =
-    process.env.MONKEYCODE_SESSION?.trim() ||
-    process.env.MONKEYCODE_COOKIE?.trim() ||
-    "";
-  return fromEnv;
+type Target = {
+  site: SiteId;
+  name: string;
+  credential: string;
+};
+
+function collectTargets(): Target[] {
+  const monkey =
+    process.env.MONKEYCODE_SESSION?.trim() || process.env.MONKEYCODE_COOKIE?.trim() || "";
+  const baizhi = process.env.BAIZHI_SESSION?.trim() || process.env.BAIZHI_COOKIE?.trim() || "";
+  const targets: Target[] = [];
+  if (monkey) {
+    targets.push({
+      site: "monkeycode-cn",
+      name: "ci-monkeycode",
+      credential: monkey,
+    });
+  }
+  if (baizhi) {
+    targets.push({
+      site: "baizhi",
+      name: "ci-baizhi",
+      credential: baizhi,
+    });
+  }
+  return targets;
 }
 
-async function ensureAccountFromEnv(): Promise<string> {
-  await loadStore();
-  const credential = envCredential();
-  if (!credential) {
-    throw new Error("缺少环境变量 MONKEYCODE_SESSION（或 MONKEYCODE_COOKIE）");
-  }
-  const { getData } = await import("./store/jsonStore.js");
-  const existing = getData().accounts.find((a) => a.enabled);
+async function ensureAccount(target: Target): Promise<string> {
+  const existing = getData().accounts.find((a) => a.site === target.site && a.enabled);
   if (existing) {
-    if (existing.credential !== credential) {
+    if (existing.credential !== target.credential) {
       await mutate((data) => {
         const acc = data.accounts.find((a) => a.id === existing.id);
         if (acc) {
-          acc.credential = credential;
+          acc.credential = target.credential;
           acc.updatedAt = nowIso();
         }
       });
@@ -40,9 +55,9 @@ async function ensureAccountFromEnv(): Promise<string> {
   await mutate((data) => {
     data.accounts.push({
       id,
-      name: "ci",
-      site: "monkeycode-cn",
-      credential,
+      name: target.name,
+      site: target.site,
+      credential: target.credential,
       enabled: true,
       createdAt: ts,
       updatedAt: ts,
@@ -59,28 +74,44 @@ async function ensureAccountFromEnv(): Promise<string> {
   return id;
 }
 
-const accountId = await ensureAccountFromEnv();
-const result = await runCheckin(accountId);
-const summary = `${result.status} pointsDelta=${result.pointsDelta}${result.error ? ` error=${result.error}` : ""}`;
-console.log(summary);
+await loadStore();
+const targets = collectTargets();
+if (targets.length === 0) {
+  throw new Error("缺少环境变量 MONKEYCODE_SESSION 或 BAIZHI_SESSION（也可用 *_COOKIE）");
+}
+
+const results: { site: SiteId; accountId: string; result: RunResult }[] = [];
+let failed = false;
+for (const target of targets) {
+  const accountId = await ensureAccount(target);
+  const result = await runCheckin(accountId);
+  const summary = `${target.site} ${result.status} pointsDelta=${result.pointsDelta}${result.error ? ` error=${result.error}` : ""}`;
+  console.log(summary);
+  results.push({ site: target.site, accountId, result });
+  if (result.status === "failed" || result.status === "auth_failed") failed = true;
+}
 
 const outDir = path.resolve("data");
 await mkdir(outDir, { recursive: true });
 const stamp = nowIso();
 await writeFile(
   path.join(outDir, "last-run.json"),
-  JSON.stringify({ at: stamp, accountId, ...result }, null, 2),
+  JSON.stringify({ at: stamp, results }, null, 2),
   "utf8",
 );
 
 try {
   const logFile = path.join(outDir, "cli.log");
   const prev = await readFile(logFile, "utf8").catch(() => "");
-  await writeFile(logFile, `${prev}${stamp} ${summary}\n`, "utf8");
+  const lines = results
+    .map(
+      ({ site, result }) =>
+        `${stamp} ${site} ${result.status} pointsDelta=${result.pointsDelta}${result.error ? ` error=${result.error}` : ""}`,
+    )
+    .join("\n");
+  await writeFile(logFile, `${prev}${lines}\n`, "utf8");
 } catch {
   /* ignore */
 }
 
-if (result.status === "failed" || result.status === "auth_failed") {
-  process.exit(1);
-}
+if (failed) process.exit(1);

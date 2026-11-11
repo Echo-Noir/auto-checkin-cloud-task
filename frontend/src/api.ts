@@ -1,9 +1,11 @@
 export type RecordStatus = "success" | "skipped" | "auth_failed" | "failed";
 
+export type SiteId = "monkeycode-cn" | "baizhi";
+
 export type AccountPublic = {
   id: string;
   name: string;
-  site: "monkeycode-cn";
+  site: SiteId;
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -55,7 +57,12 @@ export function listAccounts() {
   return request<{ accounts: AccountPublic[]; corrupted: boolean }>("/api/accounts");
 }
 
-export function createAccount(payload: { name: string; credential: string; enabled: boolean }) {
+export function createAccount(payload: {
+  name: string;
+  credential: string;
+  enabled: boolean;
+  site: SiteId;
+}) {
   return request<{ id: string }>("/api/accounts", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -64,7 +71,7 @@ export function createAccount(payload: { name: string; credential: string; enabl
 
 export function updateAccount(
   id: string,
-  payload: { name?: string; credential?: string; enabled?: boolean },
+  payload: { name?: string; credential?: string; enabled?: boolean; site?: SiteId },
 ) {
   return request<{ id: string }>(`/api/accounts/${id}`, {
     method: "PUT",

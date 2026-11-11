@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { getData, isCorrupted, mutate } from "../store/jsonStore.js";
 import { fail, isBlank, maskCredential, newId, nowIso, ok } from "../util.js";
-import type { AccountPublic } from "../types.js";
+import { isSiteId, type AccountPublic, type SiteId } from "../types.js";
 import { nextRunAt, stopJob, syncAccountJobs } from "../scheduler/cron.js";
 
 export const accountsRouter = Router();
@@ -38,6 +38,7 @@ accountsRouter.post("/", async (req, res) => {
   const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
   const credential = typeof req.body?.credential === "string" ? req.body.credential : "";
   const enabled = req.body?.enabled !== false;
+  const site: SiteId = isSiteId(req.body?.site) ? req.body.site : "monkeycode-cn";
   if (isBlank(credential)) {
     res.status(400).json(fail("会话凭证不能为空"));
     return;
@@ -46,7 +47,7 @@ accountsRouter.post("/", async (req, res) => {
   const account = {
     id: newId("acc"),
     name: name || "未命名账号",
-    site: "monkeycode-cn" as const,
+    site,
     credential: credential.trim(),
     enabled,
     createdAt: ts,
@@ -77,6 +78,7 @@ accountsRouter.put("/:id", async (req, res) => {
     if (typeof req.body?.name === "string" && req.body.name.trim()) acc.name = req.body.name.trim();
     if (typeof req.body?.credential === "string") acc.credential = req.body.credential.trim();
     if (typeof req.body?.enabled === "boolean") acc.enabled = req.body.enabled;
+    if (isSiteId(req.body?.site)) acc.site = req.body.site;
     acc.updatedAt = nowIso();
   });
   syncAccountJobs(id);
